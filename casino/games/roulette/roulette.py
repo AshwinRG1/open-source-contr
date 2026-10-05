@@ -6,6 +6,7 @@ import sys
 import shutil
 import re
 
+from casino.stats import GameStats, display_stats
 from casino.types import GameContext
 from casino.utils import clear_screen, cprint, cinput, display_topbar
 from casino.accounts import Account
@@ -170,6 +171,9 @@ class Roulette:
         # Current round's bets
         self.bets = {}
         self.winning_value: Optional[tuple[str, str]] = None
+
+        #Game Stats Implementation
+        self.stats = GameStats("Roulette", accounts[0].balance)
 
     @staticmethod
     def normalize_color(input_value: str) -> str:
@@ -466,6 +470,9 @@ class AmericanRoulette(Roulette):
 
 def play_roulette(context: GameContext) -> None:
     continue_game = True
+    wins = 0
+    losses = 0 
+    winrate = 0
 
     # Temporary fix
     # TODO: fix argument in play_roulette to only except `List[GameContext]`
@@ -481,6 +488,7 @@ def play_roulette(context: GameContext) -> None:
 
     roulette = AmericanRoulette(accounts)
     while continue_game:
+        old_balance = accounts[0].balance
         roulette.reset_round()
         clear_screen()
         display_roulette_topbar(context)
@@ -496,9 +504,17 @@ def play_roulette(context: GameContext) -> None:
         if status == "BANKRUPT":
             break
 
+
         roulette.spin_wheel(context)
         roulette.payout()
         refresh_roulette_topbar(context)
+
+        new_balance = accounts[0].balance
+
+        if (new_balance > old_balance):
+            wins += 1
+        elif (new_balance < old_balance):
+            losses += 1
 
         play_again = None
 
@@ -511,6 +527,15 @@ def play_roulette(context: GameContext) -> None:
                 continue
             if play_again.lower() in {"n", "no"}:
                 #cprint("Quitting roulette...")
+                if losses > 0:
+                    winrate = wins / (wins + losses) * 100
+                else:
+                    winrate = 100
+                roulette.stats.ending_balance = accounts[0].balance
+                roulette.stats.wins = wins
+                roulette.stats.losses = losses
+                roulette.stats.rounds_played = wins + losses
+                display_stats(roulette.stats)
                 continue_game = False
                 break
             elif play_again == "" or play_again.lower() in {"y", "yes"}:
